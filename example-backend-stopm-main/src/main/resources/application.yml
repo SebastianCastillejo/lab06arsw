@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+app:
+  cors:
+    # Origenes permitidos para REST y WebSocket (separados por coma). En prod, restringir al dominio del front.
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
