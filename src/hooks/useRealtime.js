@@ -41,7 +41,12 @@ export function useRealtime(tech, author, name, { onUpdate, onReconnect }) {
 
     if (tech === 'stomp') {
       let unsubscribe = null
-      const client = createStompClient(STOMP_BASE, { onStatus: setStatus })
+      let alive = true
+      const client = createStompClient(STOMP_BASE, {
+        onStatus: (next) => {
+          if (alive) setStatus(next)
+        },
+      })
       client.onConnect = () => {
         console.info(`[STOMP] ${connectedBefore ? 'reconectado' : 'conectado'}, suscrito a blueprints.${author}.${name}`)
         unsubscribe = subscribeBlueprint(client, author, name, (upd) => callbacksRef.current.onUpdate(upd))
@@ -54,12 +59,14 @@ export function useRealtime(tech, author, name, { onUpdate, onReconnect }) {
       }
       client.activate()
       return () => {
+        alive = false
         unsubscribe?.()
         client.deactivate()
       }
     }
 
     const room = `blueprints.${author}.${name}`
+    let alive = true
     const socket = createSocket(IO_BASE)
     sendRef.current = (point) => {
       if (!socket.connected) return false
@@ -74,16 +81,19 @@ export function useRealtime(tech, author, name, { onUpdate, onReconnect }) {
     })
     socket.on('disconnect', (reason) => {
       console.warn('[Socket.IO] desconectado:', reason)
-      setStatus('reconnecting')
+      if (alive) setStatus('reconnecting')
     })
     socket.on('connect_error', (err) => {
       console.error('[Socket.IO] error de conexión:', err.message)
-      setStatus('error')
+      if (alive) setStatus('error')
     })
     socket.on('blueprint-update', (upd) => {
       if (upd.author === author && upd.name === name) callbacksRef.current.onUpdate(upd)
     })
-    return () => socket.disconnect()
+    return () => {
+      alive = false
+      socket.disconnect()
+    }
   }, [tech, author, name, sendPoint])
 
   return { status, sendPoint, echoesToSender: tech === 'stomp' }
